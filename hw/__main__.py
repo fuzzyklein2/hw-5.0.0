@@ -1,3 +1,3 @@
-from hw.startup import *
+from .startup import *
 
 print(PROGRAM)
