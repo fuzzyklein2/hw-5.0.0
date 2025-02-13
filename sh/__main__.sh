@@ -54,7 +54,7 @@ DIR_NAME="$(basename "$SCRIPT_DIR")"
 STEM="${DIR_NAME%%-*}"
 
 PYTHON_SCRIPT="$STEM"
-LOGFILE="$STEM.log"
+LOGFILE="log/$STEM.log"
 
 # Enable logging to file if verbose mode is on
 if [ $VERBOSE -eq 1 ]; then
