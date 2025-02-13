@@ -31,11 +31,15 @@ Example Usage: ./run -v
 """
 
 from argparse import ArgumentParser as AP
+from configparser import ConfigParser as CP
+import logging
 import os
 from pathlib import Path
 from pprint import pprint as pp
+import select
 from shlex import split
 import sys
+import warnings
 
 if __debug__:
     print(f"Initializing {Path(__file__).parent.stem}")
@@ -54,6 +58,8 @@ RUNNING_CLI = not RUNNING_IN_JUPYTER
 PROGRAM = Path(__file__).parent.stem if RUNNING_CLI else nb_path.stem
 DESCRIPTION = __doc__[2]
 EPILOG = __doc__[-1]
+BASEDIR = Path(__file__).parent.parent
+VERSION = BASEDIR.name.split('-')[1]
 STD_OPTS = [[[],
   {"dest": "args",
    "metavar": "ARGUMENTS",
@@ -62,7 +68,7 @@ STD_OPTS = [[[],
   }
  ],
 
-      [["-V", "--version"], {"action": "version", "version": "ncv 0.0.0", "help": "Display the program name and version, then exit."}],
+      [["-V", "--version"], {"action": "version", "version": f"{PROGRAM} {VERSION}", "help": "Display the program name and version, then exit."}],
       [["-d", "--debug"], {"action": "store_true", "dest": "debug", "help": "Set to run the program in DEBUG mode."}],
       [["-v", "--verbose"], {"action": "store_true", "dest": "verbose", "help": "Display extra information."}],
       [["-r", "--recursive"], {"action": "store_true", "dest": "recursive", "help": "Process files recursively."}],
@@ -83,13 +89,82 @@ for option in STD_OPTS:
 if RUNNING_IN_JUPYTER: ap.add_argument("-f")
 ARGS = ap.parse_args(sys.argv[1:] if RUNNING_CLI else split(os.environ['CMD_LINE']))
 
-if __debug__:
-    print(f'{ARGS.debug=}')
-    print(f'{ARGS.verbose=}')
+# if __debug__:
+#     print(f'{ARGS.debug=}')
+#     print(f'{ARGS.verbose=}')
 
 VERBOSE = ARGS.verbose
 
-if VERBOSE:
-    print("Checking for log file...")
-    print(f'{ARGS.log=}')
+# if VERBOSE:
+#     print("Checking for log file...")
+#     print(f'{ARGS.log=}')
 
+LOGFILE = ARGS.log
+if not LOGFILE:
+    LOGFILE = os.getenv('logfile')
+if not LOGFILE:
+    LOGFILE = f'log/{PROGRAM}.log'
+
+# if VERBOSE:
+#     print(f'{LOGFILE=}')
+
+BASEDIR = Path(BASEDIR)
+LOGFILE = BASEDIR / LOGFILE
+# if LOGFILE.exists():
+#     LOGFILE.unlink()
+
+if not LOGFILE.exists():
+    LOGFILE.touch()
+
+logging.captureWarnings(True)
+
+if __debug__:
+    level = logging.DEBUG
+elif VERBOSE:
+    level = logging.INFO
+else:
+    level = logging.WARNING
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# Console handler
+console_handler = logging.StreamHandler(sys.stderr)
+console_handler.setFormatter(formatter)
+
+# File handler
+file_handler = logging.FileHandler(LOGFILE)
+file_handler.setFormatter(formatter)
+
+logger = logging.getLogger()
+logger.setLevel(level)
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+log = logging.getLogger(__name__)
+
+log.info("Logging configuration complete.")
+warnings.warn("This program is still in development. Beware of bugs!")
+
+# print(f'{ARGS.config=}')
+# print(f'{os.getenv('config')=}')
+
+CONFIG = ARGS.config
+if not CONFIG:
+    CONFIG = os.getenv('config')
+if not CONFIG:
+    CONFIG = 'etc/config.ini'
+
+CONFIG = BASEDIR / CONFIG
+log.info(f'{CONFIG=}')
+
+config = CP()
+if CONFIG.exists():
+    config.read(CONFIG)
+
+def get_stdin_input():
+    if select.select([sys.stdin], [], [], 0.0)[0]:
+        return sys.stdin.read()
+    return None
+
+INPUT = get_stdin_input()
+log.info(F'{INPUT=}')
